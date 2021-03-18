@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Magicodes.ExporterAndImporter.Core;
+﻿using Magicodes.ExporterAndImporter.Core;
 using Magicodes.ExporterAndImporter.Core.Models;
 using Magicodes.ExporterAndImporter.Excel;
+using System;
 
 namespace Magicodes.ExporterAndImporter.Tests.Models.Import
 {

@@ -24,8 +24,6 @@
     <!--<PackageReference Include="Microsoft.TestPlatform.ObjectModel" Version="16.8.3" />-->
     <DotNetCliToolReference Include="dotnet-xunit" Version="2.3.1" />
     <PackageReference Include="Shouldly" Version="4.0.3" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net461' ">
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.0' ">
@@ -53,6 +51,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="TestFiles\Errors\数据错误.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestFiles\ExportTemplates\DynamicExportTpl.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="TestFiles\ExportTemplates\Export10000ByTemplate_Test.xlsx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="TestFiles\ExportTemplates\2020年春季教材订购明细样表.xlsx">
@@ -94,6 +98,9 @@
     <None Update="TestFiles\Import\ColumnIndex导入测试.xlsx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="TestFiles\Import\issue236.xlsx">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="TestFiles\Import\单列导入测试.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -105,6 +112,9 @@
     </None>
     <None Update="TestFiles\Import\单列导入测试.xlsx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TestFiles\Import\合并行.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="TestFiles\Import\图片导入模板非表头非第一行.xlsx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -173,6 +183,4 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
 </Project>
-

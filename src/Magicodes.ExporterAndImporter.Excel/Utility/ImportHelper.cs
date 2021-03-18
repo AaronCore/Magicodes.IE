@@ -1,14 +1,14 @@
 ﻿// ======================================================================
-// 
+//
 //           filename : ImportHelper.cs
 //           description :
-// 
+//
 //           created by 雪雁 at  2019-09-18 16:25
 //           文档官网：https://docs.xin-lai.com
 //           公众号教程：麦扣聊技术
 //           QQ群：85318032（编程交流）
 //           Blog：http://www.cnblogs.com/codelove/
-// 
+//
 // ======================================================================
 
 using Magicodes.ExporterAndImporter.Core;
@@ -40,6 +40,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
     public class ImportHelper<T> : IDisposable where T : class, new()
     {
         private ExcelImporterAttribute _excelImporterAttribute;
+        private Dictionary<string, dynamic> dicMergePreValues = new Dictionary<string, dynamic>();
 
         /// <summary>
         /// </summary>
@@ -95,7 +96,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             set => _excelImporterAttribute = value;
         }
 
-
         /// <summary>
         ///     导入文件路径
         /// </summary>
@@ -135,6 +135,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             ImporterHeaderInfos = null;
             ImportResult = null;
             Stream = null;
+            dicMergePreValues = null;
             GC.Collect();
         }
 
@@ -170,7 +171,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
 
                         if (ImportResult.HasError) return Task.FromResult(ImportResult);
 
-                        #endregion
+                        #endregion 检查模板
 
                         ParseData(excelPackage);
 
@@ -201,8 +202,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
 
                         RepeatDataCheck();
 
-                        #endregion
-
+                        #endregion 数据验证
 
                         #region 执行结果筛选器
 
@@ -212,7 +212,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                             ImportResult = filter.Filter(ImportResult);
                         }
 
-                        #endregion
+                        #endregion 执行结果筛选器
 
                         //生成Excel错误标注
                         LabelingError(excelPackage);
@@ -431,7 +431,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             //标注数据错误
             foreach (var item in bussinessErrorDataList)
             {
-                item.RowIndex += ExcelImporterSettings.HeaderRowIndex;
+                //item.RowIndex += (ExcelImporterSettings.HeaderRowIndex);
                 foreach (var field in item.FieldErrors)
                 {
                     var col = ImporterHeaderInfos.First(p => p.Header.Name == field.Key);
@@ -445,7 +445,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     else
                     {
                         cell.Comment.Text = field.Value;
-
                     }
                 }
             }
@@ -503,7 +502,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     else
                     {
                         cell.Comment.Text = field.Value;
-
                     }
                 }
             }
@@ -513,8 +511,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 excelPackage.SaveAs(stream);
                 fileByte = stream.ToArray();
             }
-
-            return;
         }
 
         /// <summary>
@@ -552,7 +548,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
 
                 for (var columnIndex = 1; columnIndex <= endColumnCount; columnIndex++)
                 {
-
                     var header = worksheet.Cells[ExcelImporterSettings.HeaderRowIndex, columnIndex].Text;
 
                     //如果未设置读取的截止列，则默认指定为出现空格，则读取截止
@@ -725,7 +720,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                             colHeader.MappingValues.Add(string.Empty, null);
                 }
 
-                #endregion
+                #endregion 处理值映射
             }
 
             #region 执行列筛选器
@@ -736,7 +731,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 ImporterHeaderInfos = filter.Filter(ImporterHeaderInfos);
             }
 
-            #endregion
+            #endregion 执行列筛选器
 
             return true;
         }
@@ -760,8 +755,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 worksheet.Cells[1, 1].Value = ExcelImporterSettings.ImportDescription;
 
                 worksheet.Row(1).Height = ExcelImporterSettings.DescriptionHeight;
-
-
             }
 
             for (var i = 0; i < ImporterHeaderInfos.Count; i++)
@@ -936,7 +929,6 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     anyValidation.ShowInputMessage = true;
                     anyValidation.Prompt = showInputMessage;
                 }
-
             }
         }
 
@@ -997,12 +989,22 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                         var col = ImporterHeaderInfos.First(a => a.PropertyName == propertyInfo.Name);
 
                         var cell = worksheet.Cells[rowIndex, col.Header.ColumnIndex];
+
                         try
                         {
+                            //如果是合并行并且值不为NULL，则暂存值
+                            if (cell.Merge && cell.Value == null && dicMergePreValues.ContainsKey(propertyInfo.Name))
+                            {
+                                propertyInfo.SetValue(dataItem,
+                                           dicMergePreValues[propertyInfo.Name]);
+                                continue;
+                            }
+
                             var cellValue = cell.Value?.ToString();
                             if (!cellValue.IsNullOrWhiteSpace())
                             {
-                                if (col.MappingValues.Count > 0 && col.MappingValues.ContainsKey(cellValue))
+                                if (col.MappingValues.Count > 0 &&
+                                    (col.MappingValues.ContainsKey(cellValue)))
                                 {
                                     //TODO:进一步缓存并优化
                                     var isEnum = propertyInfo.PropertyType.IsEnum;
@@ -1018,15 +1020,23 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
 
                                     if (isEnum && isNullable && (value is int || value is short) &&
                                         Enum.IsDefined(type, value))
-                                        propertyInfo.SetValue(dataItem,
-                                            value == null ? null : Enum.ToObject(type, value));
+                                    {
+                                        SetValue(cell, dataItem, propertyInfo, value == null ? null : Enum.ToObject(type, value));
+                                    }
                                     else
                                     {
-                                        propertyInfo.SetValue(dataItem,
-                                            value);
+                                        SetValue(cell, dataItem, propertyInfo, value);
                                     }
-
                                     continue;
+                                }
+                                else if (propertyInfo.PropertyType.IsEnum &&
+                                         propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
+                                {
+                                    if (int.TryParse(cellValue, out int result))
+                                    {
+                                        SetValue(cell, dataItem, propertyInfo, result);
+                                        continue;
+                                    }
                                 }
                             }
                             else
@@ -1043,13 +1053,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                         case ImportImageTo.TempFolder:
                                             value = Extension.Save(excelPicture?.Image, path, excelPicture.ImageFormat);
                                             break;
+
                                         case ImportImageTo.Base64:
                                             value = excelPicture.Image.ToBase64String(excelPicture.ImageFormat);
                                             break;
+
                                         default:
                                             break;
                                     }
-                                    propertyInfo.SetValue(dataItem, value);
+                                    SetValue(cell, dataItem, propertyInfo, value);
                                     continue;
                                 }
                             }
@@ -1063,24 +1075,26 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                             switch (propertyInfo.PropertyType.GetCSharpTypeName())
                             {
                                 case "Boolean":
-                                    propertyInfo.SetValue(dataItem, false);
+                                    SetValue(cell, dataItem, propertyInfo, false);
                                     //AddRowDataError(rowIndex, col, $"值 {cellValue} 不存在模板下拉选项中");
                                     break;
+
                                 case "Nullable<Boolean>":
                                     if (string.IsNullOrWhiteSpace(cellValue))
-                                        propertyInfo.SetValue(dataItem, null);
+                                        SetValue(cell, dataItem, propertyInfo, null);
                                     else
                                         AddRowDataError(rowIndex, col, $"值 {cellValue} 不合法！");
                                     break;
+
                                 case "String":
                                     //TODO:进一步优化
                                     //移除所有的空格，包括中间的空格
                                     if (col.Header.FixAllSpace)
-                                        propertyInfo.SetValue(dataItem, cellValue?.Replace(" ", string.Empty));
+                                        SetValue(cell, dataItem, propertyInfo, cellValue?.Replace(" ", string.Empty));
                                     else if (col.Header.AutoTrim)
-                                        propertyInfo.SetValue(dataItem, cellValue?.Trim());
+                                        SetValue(cell, dataItem, propertyInfo, cellValue?.Trim());
                                     else
-                                        propertyInfo.SetValue(dataItem, cellValue);
+                                        SetValue(cell, dataItem, propertyInfo, cellValue);
 
                                     break;
                                 //long
@@ -1091,15 +1105,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             AddRowDataError(rowIndex, col, $"值 {cellValue} 无效，请填写正确的整数数值！");
                                             break;
                                         }
-
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Int64>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1109,9 +1123,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Int32":
                                     {
                                         if (!int.TryParse(cellValue, out var number))
@@ -1120,14 +1135,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Int32>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1137,9 +1153,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Int16":
                                     {
                                         if (!short.TryParse(cellValue, out var number))
@@ -1148,14 +1165,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Int16>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1165,9 +1183,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Decimal":
                                     {
                                         if (!decimal.TryParse(cellValue, out var number))
@@ -1176,14 +1195,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Decimal>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1193,9 +1213,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Double":
                                     {
                                         if (!double.TryParse(cellValue, out var number))
@@ -1204,14 +1225,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Double>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1221,7 +1243,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
                                 //case "float":
@@ -1233,14 +1255,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "Nullable<Single>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1250,9 +1273,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, number);
+                                        SetValue(cell, dataItem, propertyInfo, number);
                                     }
                                     break;
+
                                 case "DateTime":
                                     {
                                         if (cell.Value == null || cell.Text.IsNullOrWhiteSpace())
@@ -1263,16 +1287,16 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                         try
                                         {
                                             var date = cell.GetValue<DateTime>();
-                                            propertyInfo.SetValue(dataItem, date);
+                                            SetValue(cell, dataItem, propertyInfo, date);
                                         }
                                         catch (Exception)
                                         {
                                             AddRowDataError(rowIndex, col, $"值 {cell.Value} 无效，请填写正确的日期时间格式！");
                                             break;
                                         }
-
                                     }
                                     break;
+
                                 case "DateTimeOffset":
                                     {
                                         if (!DateTimeOffset.TryParse(cell.Text, out var date))
@@ -1281,14 +1305,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, date);
+                                        SetValue(cell, dataItem, propertyInfo, date);
                                     }
                                     break;
+
                                 case "Nullable<DateTime>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cell.Text))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1298,14 +1323,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, date);
+                                        SetValue(cell, dataItem, propertyInfo, date);
                                     }
                                     break;
+
                                 case "Nullable<DateTimeOffset>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cell.Text))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1315,9 +1341,10 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, date);
+                                        SetValue(cell, dataItem, propertyInfo, date);
                                     }
                                     break;
+
                                 case "Guid":
                                     {
                                         if (!Guid.TryParse(cellValue, out var guid))
@@ -1326,14 +1353,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, guid);
+                                        SetValue(cell, dataItem, propertyInfo, guid);
                                     }
                                     break;
+
                                 case "Nullable<Guid>":
                                     {
                                         if (string.IsNullOrWhiteSpace(cellValue))
                                         {
-                                            propertyInfo.SetValue(dataItem, null);
+                                            SetValue(cell, dataItem, propertyInfo, null);
                                             break;
                                         }
 
@@ -1343,11 +1371,12 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                             break;
                                         }
 
-                                        propertyInfo.SetValue(dataItem, guid);
+                                        SetValue(cell, dataItem, propertyInfo, guid);
                                     }
                                     break;
+
                                 default:
-                                    propertyInfo.SetValue(dataItem, cell.Value);
+                                    SetValue(cell, dataItem, propertyInfo, cell.Value);
                                     break;
                             }
                         }
@@ -1360,6 +1389,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     ImportResult.Data.Add(dataItem);
                 }
             }
+        }
+
+        private void SetValue(ExcelRange cell, T dataItem, PropertyInfo propertyInfo, dynamic value)
+        {
+            if (cell.Merge && value != null)
+            {
+                dicMergePreValues[propertyInfo.Name] = value;
+            }
+            propertyInfo.SetValue(dataItem, value);
         }
 
         /// <summary>

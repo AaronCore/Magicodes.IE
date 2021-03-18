@@ -1,24 +1,21 @@
 ﻿// ======================================================================
-// 
+//
 //           filename : ImportStudentDto.cs
 //           description :
-// 
+//
 //           created by 雪雁 at  2019-11-05 20:02
 //           文档官网：https://docs.xin-lai.com
 //           公众号教程：麦扣聊技术
 //           QQ群：85318032（编程交流）
 //           Blog：http://www.cnblogs.com/codelove/
-// 
+//
 // ======================================================================
 
 using Magicodes.ExporterAndImporter.Core;
 using Magicodes.ExporterAndImporter.Excel;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using Magicodes.ExporterAndImporter.Core.Filters;
-using Magicodes.ExporterAndImporter.Core.Models;
 
 namespace Magicodes.ExporterAndImporter.Tests.Models.Import
 {
@@ -182,7 +179,6 @@ namespace Magicodes.ExporterAndImporter.Tests.Models.Import
         [ImporterHeader(IsIgnore = true)]
         public Guid? GradeId { get; set; }
     }
-
 
     /// <summary>
     ///     性别

@@ -17,12 +17,15 @@ using Magicodes.ExporterAndImporter.Excel;
 using Magicodes.ExporterAndImporter.Tests.Extensions;
 using Magicodes.ExporterAndImporter.Tests.Models.Export;
 using Magicodes.ExporterAndImporter.Tests.Models.Export.ExportByTemplate_Test1;
+using Newtonsoft.Json.Linq;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing;
 using OfficeOpenXml.Style;
 using Shouldly;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using System.Data;
 using System.Dynamic;
 using System.IO;
@@ -59,7 +62,6 @@ namespace Magicodes.ExporterAndImporter.Tests
 
             return dt;
         }
-
 
         [Fact(DisplayName = "DTO特性导出（测试格式化以及列头索引）")]
         public async Task AttrsExport_Test()
@@ -109,7 +111,6 @@ namespace Magicodes.ExporterAndImporter.Tests
                 tb.Columns[2].Name.ShouldBe("加粗文本");
             }
         }
-
 
         [Fact(DisplayName = "导出字段顺序测试")]
         public async Task ExportByColumnIndex_Test()
@@ -502,7 +503,6 @@ namespace Magicodes.ExporterAndImporter.Tests
             }
         }
 
-
         [Fact(DisplayName = "多个sheet导出")]
         public async Task ExportMutiCollection_Test()
         {
@@ -518,7 +518,7 @@ namespace Magicodes.ExporterAndImporter.Tests
 
             var result = exporter.Append(list1, "sheet1").SeparateBySheet().Append(list2).ExportAppendData(filePath);
 
-            result.ShouldNotBeNull();
+            await result.ShouldNotBeNull();
 
             File.Exists(filePath).ShouldBeTrue();
             using (var pck = new ExcelPackage(new FileInfo(filePath)))
@@ -545,7 +545,7 @@ namespace Magicodes.ExporterAndImporter.Tests
             var list2 = new List<ExportTestDataWithSplitSheet>();
 
             var result = exporter.Append(list1).SeparateBySheet().Append(list2).ExportAppendData(filePath);
-            result.ShouldNotBeNull();
+            await result.ShouldNotBeNull();
 
             File.Exists(filePath).ShouldBeTrue();
             using (var pck = new ExcelPackage(new FileInfo(filePath)))
@@ -632,238 +632,6 @@ namespace Magicodes.ExporterAndImporter.Tests
                 pck.Workbook.Worksheets.Count.ShouldBe(12);
             }
         }
-
-        #region 模板导出
-
-        [Fact(DisplayName = "Excel模板导出教材订购明细样表（含图片）")]
-        public async Task ExportByTemplate_Test()
-        {
-            //模板路径
-            var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
-                "2020年春季教材订购明细样表.xlsx");
-            //创建Excel导出对象
-            IExportFileByTemplate exporter = new ExcelExporter();
-            //导出路径
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(ExportByTemplate_Test) + ".xlsx");
-            if (File.Exists(filePath)) File.Delete(filePath);
-            //根据模板导出
-            await exporter.ExportByTemplate(filePath,
-                new TextbookOrderInfo("湖南心莱信息科技有限公司", "湖南长沙岳麓区", "雪雁", "1367197xxxx", null,
-                    DateTime.Now.ToLongDateString(), "https://docs.microsoft.com/en-us/media/microsoft-logo-dark.png",
-                    new List<BookInfo>()
-                    {
-                        new BookInfo(1, "0000000001", "《XX从入门到放弃》", null, "机械工业出版社", "3.14", 100, "备注")
-                        {
-                            Cover = Path.Combine("TestFiles", "ExporterTest.png")
-                        },
-                        new BookInfo(2, "0000000001", "《XX从入门到放弃》", null, "机械工业出版社", "3.14", 100, "备注")
-                        {
-                            Cover = "https://docs.microsoft.com/en-us/media/microsoft-logo-dark.png"
-                        },
-                        new BookInfo(3, "0000000002", "《XX从入门到放弃》", "张三", "机械工业出版社", "3.14", 100, null),
-                        new BookInfo(4, null, "《XX从入门到放弃》", "张三", "机械工业出版社", "3.14", 100, "备注")
-                        {
-                            Cover = Path.Combine("TestFiles", "issue131.png")
-                        }
-                    }),
-                tplPath);
-
-            using (var pck = new ExcelPackage(new FileInfo(filePath)))
-            {
-                //检查转换结果
-                var sheet = pck.Workbook.Worksheets.First();
-                //确保所有的转换均已完成
-                sheet.Cells[sheet.Dimension.Address].Any(p => p.Text.Contains("{{")).ShouldBeFalse();
-                //检查图片
-                sheet.Drawings.Count.ShouldBe(4);
-                //TODO 检查合计是否正确
-
-                //TODO 检查均值是否正确
-            }
-        }
-
-        /// <summary>
-        /// https://github.com/dotnetcore/Magicodes.IE/issues/34
-        /// </summary>
-        /// <returns></returns>
-        [Fact(DisplayName = "Excel模板导出测试（issues#34）")]
-        public async Task ExportByTemplate_Test1()
-        {
-            //模板路径
-            var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
-                "template.xlsx");
-            //创建Excel导出对象
-            IExportFileByTemplate exporter = new ExcelExporter();
-            //导出路径
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(ExportByTemplate_Test1) + ".xlsx");
-            if (File.Exists(filePath)) File.Delete(filePath);
-
-            var airCompressors = new List<AirCompressor>
-            {
-                new AirCompressor()
-                {
-                    Name = "1#",
-                    Manufactor = "111",
-                    ExhaustPressure = "0",
-                    ExhaustTemperature = "66.7-95",
-                    RunningTime = "35251",
-                    WarningError = "正常",
-                    Status = "开机"
-                },
-                new AirCompressor()
-                {
-                    Name = "2#",
-                    Manufactor = "222",
-                    ExhaustPressure = "1",
-                    ExhaustTemperature = "90.7-95",
-                    RunningTime = "2222",
-                    WarningError = "正常",
-                    Status = "开机"
-                }
-            };
-
-            var afterProcessings = new List<AfterProcessing>
-            {
-                new AfterProcessing()
-                {
-                    Name = "1#abababa",
-                    Manufactor = "杭州立山",
-                    RunningTime = "NaN",
-                    WarningError = "故障",
-                    Status = "停机"
-                }
-            };
-
-            var suggests = new List<Suggest>
-            {
-                new Suggest()
-                {
-                    Number = 1,
-                    Description = "故障停机",
-                    SuggestMessage = "顾问团队远程协助"
-                }
-            };
-
-            //根据模板导出
-            await exporter.ExportByTemplate(filePath,
-                new ReportInformation()
-                {
-                    Contacts = "11112",
-                    ContactsNumber = "13642666666",
-                    CustomerName = "ababace",
-                    Date = DateTime.Now.ToString("yyyy年MM月dd日"),
-                    SystemExhaustPressure = "0.54-0.62",
-                    SystemDewPressure = "-0.63--77.5",
-                    SystemDayFlow = "201864",
-                    AirCompressors = airCompressors,
-                    AfterProcessings = afterProcessings,
-                    Suggests = suggests,
-                    SystemPressureHisotries = new List<SystemPressureHisotry>()
-                },
-                tplPath);
-
-            using (var pck = new ExcelPackage(new FileInfo(filePath)))
-            {
-                //检查转换结果
-                var sheet = pck.Workbook.Worksheets.First();
-                //确保所有的转换均已完成
-                sheet.Cells[sheet.Dimension.Address].Any(p => p.Text.Contains("{{")).ShouldBeFalse();
-            }
-        }
-
-
-
-        [Fact(DisplayName = "Excel模板导出Bytes测试（issues#34_2）")]
-        public async Task ExportBytesByTemplate_Test1()
-        {
-            //模板路径
-            var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
-                "template.xlsx");
-            //创建Excel导出对象
-            IExportFileByTemplate exporter = new ExcelExporter();
-            //导出路径
-            var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(ExportBytesByTemplate_Test1) + ".xlsx");
-            if (File.Exists(filePath)) File.Delete(filePath);
-
-            var airCompressors = new List<AirCompressor>
-            {
-                new AirCompressor()
-                {
-                    Name = "1#",
-                    Manufactor = "111",
-                    ExhaustPressure = "0",
-                    ExhaustTemperature = "66.7-95",
-                    RunningTime = "35251",
-                    WarningError = "正常",
-                    Status = "开机"
-                },
-                new AirCompressor()
-                {
-                    Name = "2#",
-                    Manufactor = "222",
-                    ExhaustPressure = "1",
-                    ExhaustTemperature = "90.7-95",
-                    RunningTime = "2222",
-                    WarningError = "正常",
-                    Status = "开机"
-                }
-            };
-
-            var afterProcessings = new List<AfterProcessing>
-            {
-                new AfterProcessing()
-                {
-                    Name = "1#abababa",
-                    Manufactor = "杭州立山",
-                    RunningTime = "NaN",
-                    WarningError = "故障",
-                    Status = "停机"
-                }
-            };
-
-            var suggests = new List<Suggest>
-            {
-                new Suggest()
-                {
-                    Number = 1,
-                    Description = "故障停机",
-                    SuggestMessage = "顾问团队远程协助"
-                }
-            };
-
-            //根据模板导出
-            var result = await exporter.ExportBytesByTemplate(
-                new ReportInformation()
-                {
-                    Contacts = "11112",
-                    ContactsNumber = "13642666666",
-                    CustomerName = "ababace",
-                    Date = DateTime.Now.ToString("yyyy年MM月dd日"),
-                    SystemExhaustPressure = "0.54-0.62",
-                    SystemDewPressure = "-0.63--77.5",
-                    SystemDayFlow = "201864",
-                    AirCompressors = airCompressors,
-                    AfterProcessings = afterProcessings,
-                    Suggests = suggests,
-                    SystemPressureHisotries = new List<SystemPressureHisotry>()
-                },
-                tplPath);
-            result.ShouldNotBeNull();
-            using (var file = File.OpenWrite(filePath))
-            {
-                file.Write(result, 0, result.Length);
-            }
-
-            using (var pck = new ExcelPackage(new FileInfo(filePath)))
-            {
-                //检查转换结果
-                var sheet = pck.Workbook.Worksheets.First();
-                //确保所有的转换均已完成
-                sheet.Cells[sheet.Dimension.Address].Any(p => p.Text.Contains("{{")).ShouldBeFalse();
-            }
-        }
-
-        #endregion 模板导出
 
 
         [Fact(DisplayName = "无特性定义导出测试")]
@@ -964,8 +732,7 @@ namespace Magicodes.ExporterAndImporter.Tests
             }
         }
 
-
-        #endregion
+        #endregion 图片导出
 
         [Fact(DisplayName = "数据注解导出测试")]
         public async Task ExportTestDataAnnotations_Test()
@@ -1026,7 +793,6 @@ namespace Magicodes.ExporterAndImporter.Tests
             result.ShouldNotBeNull();
             File.Exists(filePath).ShouldBeTrue();
         }
-
 
         [Fact(DisplayName = "导出分割当前Sheet追加Rows")]
         public async Task ExprotSeparateByRows_Test()
@@ -1119,8 +885,19 @@ namespace Magicodes.ExporterAndImporter.Tests
                 pck.Workbook.Worksheets.First().Cells[pck.Workbook.Worksheets.First().Dimension.Address].Rows
                     .ShouldBe(list.Count + 1);
                 pck.Workbook.Worksheets.First().Cells["A2"].Text.ShouldBe(list[0].IdCard);
-
             }
+        }
+
+        [Fact(DisplayName = "忽略所有列进行导出测试")]
+        public async Task ItThrowsIfIgnoresAllColumnsExport_Test()
+        {
+            IExporter exporter = new ExcelExporter();
+            var filePath = GetTestFilePath($"{nameof(ItThrowsIfIgnoresAllColumnsExport_Test)}.xlsx");
+            DeleteFile(filePath);
+
+            Func<Task> f = async () => await exporter.ExportAsByteArray(GenFu.GenFu.ListOf<ExportTestIgnoreAllColumns>());
+            var exception = await Assert.ThrowsAsync<ArgumentException>(f);
+            exception.Message.ShouldBe("请勿忽略全部表头！");
         }
     }
 }

@@ -1,24 +1,18 @@
 ﻿using Magicodes.ExporterAndImporter.Core;
 using Magicodes.ExporterAndImporter.Core.Extension;
+using Magicodes.ExporterAndImporter.Core.Filters;
 using Magicodes.ExporterAndImporter.Core.Models;
 using OfficeOpenXml;
+using OfficeOpenXml.Style;
 using OfficeOpenXml.Table;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Linq.Dynamic.Core;
-using Magicodes.ExporterAndImporter.Core.Filters;
 using System.Drawing;
 using System.Dynamic;
-using OfficeOpenXml.Drawing;
-using OfficeOpenXml.Style;
 using System.Globalization;
-using System.Linq.Expressions;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace Magicodes.ExporterAndImporter.Excel.Utility
@@ -64,6 +58,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         /// 
         /// </summary>
         /// <param name="existExcelPackage"></param>
+        /// <param name="sheetName"></param>
 
         public ExportHelper(ExcelPackage existExcelPackage, string sheetName = null)
         {
@@ -186,7 +181,8 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             get
             {
                 if (_exporterHeaderList == null) GetExporterHeaderInfoList();
-                if ((_exporterHeaderList == null || _exporterHeaderList.Count == 0) && !IsDynamicDatableExport && !IsExpandoObjectType) throw new Exception("请定义表头！");
+                if ((_exporterHeaderList == null || _exporterHeaderList.Count == 0) && !IsDynamicDatableExport && !IsExpandoObjectType) throw new ArgumentException("请定义表头！");
+                if (_exporterHeaderList.Count(t => t.ExporterHeaderAttribute.IsIgnore == false) == 0 && _exporterHeaderList.Count != 0) throw new ArgumentException("请勿忽略全部表头！");
                 return _exporterHeaderList;
             }
             set => _exporterHeaderList = value;
@@ -574,7 +570,8 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             {
                 if (propertyInfo.PropertyType.IsEnum ||
                     propertyInfo.PropertyType == typeof(bool) ||
-                    propertyInfo.PropertyType == typeof(bool?))
+                    propertyInfo.PropertyType == typeof(bool?) ||
+                    (propertyInfo.PropertyType.IsNullable() && propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum))
                 {
                     dt.Columns.Add(propertyInfo.Name);
                 }
@@ -589,40 +586,51 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 }
             }
 
-
             foreach (var dataItem in dataItems)
             {
                 var dr = dt.NewRow();
                 foreach (var propertyInfo in properties)
                 {
                     var value = type.GetProperty(propertyInfo.Name)?.GetValue(dataItem)?.ToString();
-                    if (propertyInfo.PropertyType.IsEnum)
+                    if (
+                        propertyInfo.PropertyType.IsEnum ||
+                        propertyInfo.PropertyType.GetNullableUnderlyingType() != null &&
+                        propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
                     {
-                        var col = ExporterHeaderList.First(a => a.PropertyName == propertyInfo.Name);
+                        if (value != null)
+                        {
+                            var col = ExporterHeaderList.First(a => a.PropertyName == propertyInfo.Name);
 
-                        if (col.MappingValues.Count > 0 && col.MappingValues.ContainsKey(value ?? string.Empty))
-                        {
-                            var mapValue = col.MappingValues.FirstOrDefault(f => f.Key == value);
-                            dr[propertyInfo.Name] = mapValue.Value;
-                        }
-                        else
-                        {
-                            var enumDefinitionList = propertyInfo.PropertyType.GetEnumDefinitionList();
-                            var tuple = enumDefinitionList.FirstOrDefault(f => f.Item1 == value);
-                            if (tuple != null)
+                            if (col.MappingValues.Count > 0 && col.MappingValues.ContainsKey(value))
                             {
-                                if (!tuple.Item4.IsNullOrWhiteSpace())
-                                {
-                                    dr[propertyInfo.Name] = tuple.Item4;
-                                }
-                                else
-                                {
-                                    dr[propertyInfo.Name] = tuple.Item2;
-                                }
+                                var mapValue = col.MappingValues.FirstOrDefault(f => f.Key == value);
+                                dr[propertyInfo.Name] = mapValue.Value;
                             }
                             else
                             {
-                                dr[propertyInfo.Name] = value;
+                                var enumDefinitionList = propertyInfo.PropertyType.GetEnumDefinitionList();
+                                if (enumDefinitionList == null)
+                                {
+                                    enumDefinitionList = propertyInfo.PropertyType.GetNullableUnderlyingType()
+                                        .GetEnumDefinitionList();
+                                }
+
+                                var tuple = enumDefinitionList.FirstOrDefault(f => f.Item1 == value);
+                                if (tuple != null)
+                                {
+                                    if (!tuple.Item4.IsNullOrWhiteSpace())
+                                    {
+                                        dr[propertyInfo.Name] = tuple.Item4;
+                                    }
+                                    else
+                                    {
+                                        dr[propertyInfo.Name] = tuple.Item2;
+                                    }
+                                }
+                                else
+                                {
+                                    dr[propertyInfo.Name] = value;
+                                }
                             }
                         }
                     }
@@ -694,7 +702,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                         if (value != null)
                         {
                             dr[propertyInfo.Name]
-                                =value;
+                                = value;
                         }
                         else
                         {
@@ -726,12 +734,21 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     {
                         var cell = CurrentExcelWorksheet.Cells[rowIndex + 1, colIndex + 1];
                         var url = cell.Text;
-                        if (File.Exists(url) || url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        if (File.Exists(url) || url.StartsWith("http", StringComparison.OrdinalIgnoreCase) || url.IsBase64StringValid())
                         {
                             try
                             {
                                 cell.Value = string.Empty;
-                                var bitmap = Extension.GetBitmapByUrl(url);
+                                Bitmap bitmap;
+                                if (url.IsBase64StringValid())
+                                {
+                                    bitmap = url.Base64StringToBitmap();
+                                }
+                                else
+                                {
+                                    bitmap = Extension.GetBitmapByUrl(url);
+                                }
+
                                 if (bitmap == null)
                                 {
                                     cell.Value = ExporterHeaderList[colIndex].ExportImageFieldAttribute.Alt;
