@@ -1,22 +1,41 @@
-﻿using Magicodes.ExporterAndImporter.Core;
+﻿// ======================================================================
+//
+//           filename : ImportStudentDto.cs
+//           description :
+//
+//           created by 雪雁 at  2019-11-05 20:02
+//           文档官网：https://docs.xin-lai.com
+//           公众号教程：麦扣聊技术
+//           QQ群：85318032（编程交流）
+//           Blog：http://www.cnblogs.com/codelove/
+//
+// ======================================================================
+
+using Magicodes.ExporterAndImporter.Core;
+using Magicodes.ExporterAndImporter.Excel;
 using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace Magicodes.ExporterAndImporter.Tests.Models.Import
 {
-    public class GenerateStudentImportSheetDataValidationDto
+    /// <summary>
+    /// 导入学生数据Dto
+    /// IsLabelingError：是否标注数据错误
+    /// IsIgnoreColumnCase：忽略列头大小写
+    /// </summary>
+    [ExcelImporter(IsLabelingError = true, IsDisableAllFilter = true, IsIgnoreColumnCase = true)]
+    public class Issue243
     {
         /// <summary>
         ///     序号
         /// </summary>
-        [ImporterHeader(Name = "序号", IsInterValidation = true,Format ="@")]
-        [Range(minimum: 0, maximum: 20, ErrorMessage = "序号最大为20")]
+        [ImporterHeader(Name = "no")]
         public long SerialNumber { get; set; }
 
         /// <summary>
         ///     学籍号
         /// </summary>
-        [ImporterHeader(Name = "学籍号", IsAllowRepeat = false, IsInterValidation = true)]
+        [ImporterHeader(Name = "学籍号", IsAllowRepeat = false)]
         [MaxLength(30, ErrorMessage = "学籍号字数超出最大限制,请修改!")]
         public string StudentCode { get; set; }
 
@@ -29,31 +48,6 @@ namespace Magicodes.ExporterAndImporter.Tests.Models.Import
         public string Name { get; set; }
 
         /// <summary>
-        ///     年龄
-        /// </summary>
-        [ImporterHeader(Name = "年龄", IsInterValidation = true)]
-        [Range(minimum: 18, maximum: 20, ErrorMessage = "年龄范围需要在18-20岁哦")]
-        public int Age { get; set; }
-
-        /// <summary>
-        ///     MinTest
-        /// </summary>
-        [ImporterHeader(Name = "MinTest", IsInterValidation = true)]
-        [MinLength(5, ErrorMessage = "最小长度为5哦")]
-        public string MinTest { get; set; }
-
-        /// <summary>
-        ///     忽略类型
-        /// </summary>
-        [ImporterHeader(Name = "忽略类型", IsInterValidation = true)]
-        [Range(minimum: 18, maximum: 20, ErrorMessage = "年龄范围需要在18-20岁哦", ErrorMessageResourceType = typeof(string))]
-        public int IgnoreType { get; set; }
-
-        [ImporterHeader(Name = "出生日期",IsInterValidation = true, ShowInputMessage = "输入日期")]
-        [Range(typeof(DateTime), minimum: "2020-10-20", maximum: "2020-10-24", ErrorMessage = "日期范围超出了哦")]
-        public DateTime Birthday { get; set; }
-
-        /// <summary>
         ///     身份证号码
         /// </summary>
         [ImporterHeader(Name = "身份证号", IsAllowRepeat = false)]
@@ -64,6 +58,7 @@ namespace Magicodes.ExporterAndImporter.Tests.Models.Import
         /// <summary>
         ///     性别
         /// </summary>
+        [ImporterHeader(Name = "性别")]
         [Required(ErrorMessage = "性别不能为空")]
         [ValueMapping("男", 0)]
         [ValueMapping("女", 1)]
@@ -109,7 +104,8 @@ namespace Magicodes.ExporterAndImporter.Tests.Models.Import
         /// <summary>
         ///     QQ
         /// </summary>
-        [ImporterHeader(Name = "QQ号", IsInterValidation = true, ShowInputMessage = "性别列")]
+        [ImporterHeader(Name = "QQ号")]
+        [MaxLength(30, ErrorMessage = "QQ号字数超出最大限制,请修改!")]
         public string QQ { get; set; }
 
         /// <summary>
@@ -146,5 +142,41 @@ namespace Magicodes.ExporterAndImporter.Tests.Models.Import
         [ImporterHeader(Name = "备注")]
         [MaxLength(200, ErrorMessage = "备注字数超出最大限制,请修改!")]
         public string Remark { get; set; }
+
+        /// <summary>
+        ///     是否住校(宿舍)
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public bool? IsBoarding { get; set; }
+
+        /// <summary>
+        ///     所属班级id
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public Guid ClassId { get; set; }
+
+        /// <summary>
+        ///     学校Id
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public Guid? SchoolId { get; set; }
+
+        /// <summary>
+        ///     校区Id
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public Guid? CampusId { get; set; }
+
+        /// <summary>
+        ///     专业Id
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public Guid? MajorsId { get; set; }
+
+        /// <summary>
+        ///     年级Id
+        /// </summary>
+        [ImporterHeader(IsIgnore = true)]
+        public Guid? GradeId { get; set; }
     }
 }

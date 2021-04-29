@@ -81,7 +81,11 @@ namespace Magicodes.ExporterAndImporter.Tests
             var result = await Importer.GenerateTemplate<GenerateStudentImportSheetDataValidationDto>(filePath);
             result.ShouldNotBeNull();
             File.Exists(filePath).ShouldBeTrue();
-
+            using (var pck = new ExcelPackage(new FileInfo(filePath)))
+            {
+                var sheet = pck.Workbook.Worksheets.First();
+                sheet.Cells["A2"].Style.Numberformat.Format.ShouldBe("@");
+            }
             //TODO:读取Excel检查表头和格式
         }
 
@@ -116,6 +120,11 @@ namespace Magicodes.ExporterAndImporter.Tests
             if (File.Exists(filePath)) File.Delete(filePath);
 
             var result = await Importer.GenerateTemplate<ImportProductDto>(filePath);
+            using (var pck = new ExcelPackage(new FileInfo(filePath)))
+            {
+                var sheet = pck.Workbook.Worksheets.First();
+                sheet.Column(15).Style.Numberformat.Format.ShouldBe("yyyy-MM-dd");
+            }
             result.ShouldNotBeNull();
             File.Exists(filePath).ShouldBeTrue();
             //TODO:读取Excel检查表头和格式
@@ -891,6 +900,66 @@ namespace Magicodes.ExporterAndImporter.Tests
             import.Data.Select(p => p.Name).Skip(3).Take(4).All(p => p == "李四").ShouldBeTrue();
             import.Data.Select(p => p.Name).Skip(7).Take(6).All(p => p == "王五").ShouldBeTrue();
             import.Data.Count.ShouldBe(13);
+        }
+
+        [Fact(DisplayName = "Issue225-枚举测试")]
+        public async Task Issue225_Test()
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "Import", "Issue225.xlsx");
+            var import = await Importer.Import<ImportStudentDto>(filePath);
+            import.ShouldNotBeNull();
+            if (import.Exception != null) _testOutputHelper.WriteLine(import.Exception.ToString());
+
+            if (import.RowErrors.Count > 0) _testOutputHelper.WriteLine(JsonConvert.SerializeObject(import.RowErrors));
+
+            import.RowErrors.Count.ShouldBe(2);
+            import.RowErrors[0].FieldErrors.Any(p => p.Value.Contains("不存在模板下拉选项中"));
+            import.RowErrors[1].FieldErrors.Any(p => p.Value.Contains("不存在模板下拉选项中"));
+
+            import.HasError.ShouldBeTrue();
+            import.Data.ShouldNotBeNull();
+            import.Data.Count.ShouldBe(16);
+
+            //检查值映射
+            for (int i = 0; i < import.Data.Count; i++)
+            {
+                if (i < 5)
+                {
+                    import.Data.ElementAt(i).Gender.ShouldBe(Genders.Man);
+                }
+                else
+                {
+                    import.Data.ElementAt(i).Gender.ShouldBe(Genders.Female);
+                }
+            }
+        }
+
+        [Fact(DisplayName = "列头忽略大小写导入测试#243")]
+        public async Task IsIgnoreColumnCase_Test()
+        {
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "Import", "Issue243.xlsx");
+            var import = await Importer.Import<Issue243>(filePath);
+            import.ShouldNotBeNull();
+            if (import.Exception != null) _testOutputHelper.WriteLine(import.Exception.ToString());
+
+            if (import.RowErrors.Count > 0) _testOutputHelper.WriteLine(JsonConvert.SerializeObject(import.RowErrors));
+            import.HasError.ShouldBeFalse();
+            import.Data.ShouldNotBeNull();
+            import.Data.First().SerialNumber.ShouldNotBe(0);
+            import.Data.Count.ShouldBe(16);
+
+            //检查值映射
+            for (int i = 0; i < import.Data.Count; i++)
+            {
+                if (i < 5)
+                {
+                    import.Data.ElementAt(i).Gender.ShouldBe(Genders.Man);
+                }
+                else
+                {
+                    import.Data.ElementAt(i).Gender.ShouldBe(Genders.Female);
+                }
+            }
         }
     }
 }

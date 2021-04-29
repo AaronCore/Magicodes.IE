@@ -9,24 +9,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Linq.Dynamic.Core;
-
-/* 项目“Magicodes.ExporterAndImporter.Excel (netstandard2.0)”的未合并的更改
-在此之前:
-using Magicodes.ExporterAndImporter.Core.Models;
-using OfficeOpenXml;
-在此之后:
-using System.Linq.Expressions;
-using System.Reflection;
-*/
-
-/* 项目“Magicodes.ExporterAndImporter.Excel (netstandard2.1)”的未合并的更改
-在此之前:
-using Magicodes.ExporterAndImporter.Core.Models;
-using OfficeOpenXml;
-在此之后:
-using System.Linq.Expressions;
-using System.Reflection;
-*/
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -52,6 +34,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         private ImportMultipleSheetHelper()
         {
 
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="stream"></param>
+        public ImportMultipleSheetHelper(Stream stream)
+        {
+            _excelStream = stream;
         }
 
         /// <summary>
@@ -140,11 +131,12 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         ///     导入模型验证数据
         /// </summary>
         /// <returns></returns>
-        public Task<ImportResult<object>> Import(string sheetName, Type importDataType, bool isSaveLabelingError = true)
+        public Task<ImportResult<object>> Import(string sheetName, int sheetIndex, Type importDataType, bool isSaveLabelingError = true)
         {
             _importDataType = importDataType;
             ImportResult = new ImportResult<object>();
             ExcelImporterSettings.SheetName = sheetName;
+            ExcelImporterSettings.SheetIndex = sheetIndex;
             try
             {
                 if (_excelPackage == null) _excelPackage = new ExcelPackage(_excelStream);
@@ -633,7 +625,12 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         protected virtual void ParseData(ExcelPackage excelPackage)
         {
             var worksheet = GetImportSheet(excelPackage);
-            if (ExcelImporterSettings.MaxCount != int.MaxValue && worksheet.Dimension.End.Row > ExcelImporterSettings.MaxCount + ExcelImporterSettings.HeaderRowIndex) throw new ArgumentException($"最大允许导入条数不能超过{ExcelImporterSettings.MaxCount}条！");
+
+            //检查导入最大条数限制
+            if (ExcelImporterSettings.MaxCount != 0
+               && ExcelImporterSettings.MaxCount != int.MaxValue
+               && worksheet.Dimension.End.Row > ExcelImporterSettings.MaxCount + ExcelImporterSettings.HeaderRowIndex
+               ) throw new ArgumentException($"最大允许导入条数不能超过{ExcelImporterSettings.MaxCount}条！");
 
             ImportResult.Data = new List<object>();
             var propertyInfos = new List<PropertyInfo>(_importDataType.GetProperties());
@@ -939,13 +936,19 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         protected virtual ExcelWorksheet GetImportSheet(ExcelPackage excelPackage)
         {
 #if NET461
-            return excelPackage.Workbook.Worksheets[_importDataType.GetDisplayName()] ??
-                   excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??
-                   excelPackage.Workbook.Worksheets[1];
+            return excelPackage.Workbook.Worksheets[_importDataType.GetDisplayName()]??(
+                 ExcelImporterSettings.SheetName != null?
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex] :
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex]??
+                   excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex]);
 #else
-            return excelPackage.Workbook.Worksheets[_importDataType.GetDisplayName()] ??
-                   excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??
-                   excelPackage.Workbook.Worksheets[0];
+            return excelPackage.Workbook.Worksheets[_importDataType.GetDisplayName()] ??(
+                 ExcelImporterSettings.SheetName != null?
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex] :
+                 excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex]??
+                   excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetIndex]);
 #endif
         }
 

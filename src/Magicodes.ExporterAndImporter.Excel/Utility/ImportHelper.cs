@@ -82,7 +82,8 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                             MaxCount = importerAttribute.MaxCount,
                             ImportResultFilter = importerAttribute.ImportResultFilter,
                             ImportHeaderFilter = importerAttribute.ImportHeaderFilter,
-                            IsDisableAllFilter = importerAttribute.IsDisableAllFilter
+                            IsDisableAllFilter = importerAttribute.IsDisableAllFilter,
+                            IsIgnoreColumnCase = importerAttribute.IsIgnoreColumnCase
                         };
                     }
                     else
@@ -488,7 +489,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             //标注数据错误
             foreach (var item in bussinessErrorDataList)
             {
-                item.RowIndex += ExcelImporterSettings.HeaderRowIndex;
+                //item.RowIndex += ExcelImporterSettings.HeaderRowIndex;
                 foreach (var field in item.FieldErrors)
                 {
                     var col = ImporterHeaderInfos.First(p => p.Header.Name == field.Key);
@@ -572,7 +573,23 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 }
 
                 foreach (var item in ImporterHeaderInfos)
-                    if (!excelHeaders.ContainsKey(item.Header.Name))
+                {
+                    //支持忽略列名的大小写
+                    var isColumnExist = false;
+                    if (ExcelImporterSettings.IsIgnoreColumnCase)
+                    {
+                        var excelHeaderName = (excelHeaders.Keys.FirstOrDefault(p => p.Equals(item.Header.Name, StringComparison.CurrentCultureIgnoreCase)));
+                        isColumnExist = excelHeaderName != null;
+                        if (isColumnExist)
+                        {
+                            item.Header.Name = excelHeaderName;
+                        }
+                    }
+                    else
+                    {
+                        isColumnExist = (excelHeaders.ContainsKey(item.Header.Name));
+                    }
+                    if (!isColumnExist)
                     {
                         //仅验证必填字段
                         if (item.IsRequired)
@@ -602,6 +619,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                         if (item.Header.ColumnIndex == 0)
                             item.Header.ColumnIndex = excelHeaders[item.Header.Name];
                     }
+                }
             }
             catch (Exception ex)
             {
@@ -796,6 +814,11 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                         ExcelPackage.MaxRows, i + 1);
                     SetInterValidation(worksheet, ImporterHeaderInfos[i].PropertyInfo, range, ImporterHeaderInfos[i].Header.ShowInputMessage);
                 }
+                if (!ImporterHeaderInfos[i].Header.Format.IsNullOrWhiteSpace())
+                {
+                    SetFormat(worksheet, ImporterHeaderInfos[i].Header.Format);
+                }
+
             }
 
             worksheet.Cells.AutoFitColumns();
@@ -810,6 +833,17 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
             worksheet.Cells[worksheet.Dimension.Address].Style.Fill.PatternType = ExcelFillStyle.Solid;
             //绿色太丑了
             worksheet.Cells[worksheet.Dimension.Address].Style.Fill.BackgroundColor.SetColor(Color.White);
+        }
+
+        /// <summary>
+        /// 设置单元格格式
+        /// </summary>
+        /// <param name="worksheet"></param>
+        /// <param name="format"></param>
+        private void SetFormat(ExcelWorksheet worksheet, string format)
+        {
+            //ws.Dimension.Rows + 2, 1
+            worksheet.Column(worksheet.Dimension.Columns).Style.Numberformat.Format = format;
         }
 
         /// <summary>
@@ -967,7 +1001,13 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
         protected virtual void ParseData(ExcelPackage excelPackage)
         {
             var worksheet = GetImportSheet(excelPackage);
-            if (ExcelImporterSettings.MaxCount != int.MaxValue && worksheet.Dimension.End.Row > ExcelImporterSettings.MaxCount + ExcelImporterSettings.HeaderRowIndex) throw new ArgumentException($"最大允许导入条数不能超过{ExcelImporterSettings.MaxCount}条！");
+
+            //检查导入最大条数限制
+            if (ExcelImporterSettings.MaxCount != 0
+                && ExcelImporterSettings.MaxCount != int.MaxValue
+                && worksheet.Dimension.End.Row > ExcelImporterSettings.MaxCount + ExcelImporterSettings.HeaderRowIndex
+                ) throw new ArgumentException($"最大允许导入条数不能超过{ExcelImporterSettings.MaxCount}条！");
+
             ImportResult.Data = new List<T>();
             var propertyInfos = new List<PropertyInfo>(typeof(T).GetProperties());
 
@@ -1029,8 +1069,9 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                     }
                                     continue;
                                 }
-                                else if (propertyInfo.PropertyType.IsEnum &&
-                                         propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
+                                else if (propertyInfo.PropertyType.IsEnum
+                                    && (propertyInfo.PropertyType.IsNullable() && propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
+                                         )
                                 {
                                     if (int.TryParse(cellValue, out int result))
                                     {
@@ -1066,7 +1107,8 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                 }
                             }
 
-                            if (propertyInfo.PropertyType.IsEnum)
+                            if (propertyInfo.PropertyType.IsEnum ||
+                                    (propertyInfo.PropertyType.IsNullable() && propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum))
                             {
                                 AddRowDataError(rowIndex, col, $"值 {cellValue} 不存在模板下拉选项中");
                                 continue;

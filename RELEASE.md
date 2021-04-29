@@ -1,5 +1,54 @@
 # Release Log
 
+## 2.5.3.7
+
+**2021.04.23**
+- 修复导入模板生成，格式错误[#261](https://github.com/dotnetcore/Magicodes.IE/issues/261)
+例如：
+
+## 2.5.3.6
+
+**2021.04.18**
+- 支持对导入模板生成，预设值单元格格式[#253](https://github.com/dotnetcore/Magicodes.IE/issues/253)
+例如：
+```
+[ImporterHeader(Name = "序号", Format ="@")]
+```
+- 单元格图片导出支持偏移设置[#250](https://github.com/dotnetcore/Magicodes.IE/issues/250)
+例如：
+```
+**YOffset**：垂直偏移（可进行移动图片）
+**XOffset**：水平偏移（可进行移动图片）
+```
+- 支持多sheet导入SheetIndex的支持[#254](https://github.com/dotnetcore/Magicodes.IE/issues/254)
+例如：
+```
+[ExcelImporter(SheetIndex = 2)]
+```
+
+## 2.5.3.5
+
+**2021.04.13**
+- Excel导入支持列头忽略大小写导入（全局配置：IsIgnoreColumnCase）
+
+## 2.5.3.4
+
+**2021.04.06**
+- Excel导入修复枚举值不在范围时的错误提示
+
+## 2.5.3.3
+
+**2021.04.03**
+- Excel导入逻辑移除5万行的限制，默认不限制导入数量
+
+
+## 2.5.3.2
+
+**2021.03.30**
+- Excel修复OutputBussinessErrorData扩展方法
+- 多Sheet导入对Stream的支持
+
+
 ## 2.5.3.1
 
 **2021.03.12**

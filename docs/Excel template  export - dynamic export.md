@@ -1,51 +1,47 @@
-# Excel模板导出之动态导出
+# Excel template  export - dynamic export
 
-## 说明
+## Description
 
-目前Magicodes.IE已支持Excel模板导出时使用`JObject`、`Dictionary`和`ExpandoObject`来进行动态导出，具体使用请看本篇教程。
+Magicodes.IE currently supports Excel template export using `JObject`, `Dictionary` and `ExpandoObject` for dynamic export, Please follow this tutorial for details.
 
-Tips:
+The idea of this function, part of the implementation initially originated from [arik](https://gitee.com/arik) ,Thanks again[arik](https://gitee.com/arik)！
 
-- [ExpandoObject 类：表示可在运行时动态添加和删除其成员的对象](https://docs.microsoft.com/zh-cn/dotnet/api/system.dynamic.expandoobject?view=net-5.0&WT.mc_id=DT-MVP-5004079)
-
-本功能的想法、部分实现初步源于[arik](https://gitee.com/arik)的贡献，这里再次感谢[arik](https://gitee.com/arik)！
-
-在开始本篇教程之前，我们重温一下模板导出的语法：
+开始本篇教程前，我们重温一下模板导出的语法：
 
 ```
-  {{Company}}  //单元格渲染
-  {{Table>>BookInfos|RowNo}} //表格渲染开始语法
-  {{Remark|>>Table}}//表格渲染结束语法
-  {{Image::ImageUrl?Width=50&Height=120&Alt=404}} //图片渲染
-  {{Image::ImageUrl?w=50&h=120&Alt=404}} //图片渲染
-  {{Image::ImageUrl?Alt=404}} //图片渲染
-  {{Formula::AVERAGE?params=G4:G6}}  //公式渲染
-  {{Formula::SUM?params=G4:G6&G4}}   //公式渲染
+  {{Company}}  //Cell rendering
+  {{Table>>BookInfos|RowNo}} //Table rendering start syntax
+  {{Remark|>>Table}}//Table rendering end syntax
+  {{Image::ImageUrl?Width=50&Height=120&Alt=404}} //Image Rendering
+  {{Image::ImageUrl?w=50&h=120&Alt=404}} //Image Rendering
+  {{Image::ImageUrl?Alt=404}} //Image Rendering
+  {{Formula::AVERAGE?params=G4:G6}}  //Formula Rendering
+  {{Formula::SUM?params=G4:G6&G4}}   //Formula Rendering
 ```
 
-如果您对Magicodes.IE的模板导出不太了解，请阅读以下教程：
+If you are not familiar with Magicodes.IE's template export, please read the following tutorial.
 
-[Excel模板导出之导出教材订购表](9.Excel模板导出之导出教材订购表.md)
+[Excel template export-Export textbook order form ](9.Excel template export-Export textbook order form.md)
 
-接下来，我们开始本篇教程：
+Next, we begin this tutorial.
 
-## 1.安装包Magicodes.IE.Excel
+## 1. Installation package Magicodes.IE.Excel
 
 ```powershell
 Install-Package Magicodes.IE.Excel
 ```
 
-## 2.准备Excel模板文件
+## 2. Prepare the Excel template file
 
-参考如图：
+For example, the following chart.
 
 ![模板文件](../res/image-20210308175620226.png)
 
-该文件可以在测试工程中找到，文件名为【DynamicExportTpl.xlsx】。
+This file can be found in the test project with the file name【DynamicExportTpl.xlsx】。
 
-## 3.使用JObject完成动态导出
+## 3. Use JObject to complete dynamic export
 
-代码比较简单，如下所示：
+The code is relatively simple and is shown below.
 
 ```csharp
     string json = @"{
@@ -59,30 +55,32 @@ Install-Package Magicodes.IE.Excel
       ]
     }";
     var jobj = JObject.Parse(json);
-    //模板路径
+    //Template Path
     var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
         "DynamicExportTpl.xlsx");
-    //创建Excel导出对象
+    //Creating Excel Export Objects
     IExportFileByTemplate exporter = new ExcelExporter();
-    //导出路径
+    //Export Path
     var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(DynamicExportByTemplate_Test) + ".xlsx");
     if (File.Exists(filePath)) File.Delete(filePath);
 
-    //根据模板导出
+    //Export from template
     await exporter.ExportByTemplate(filePath, jobj, tplPath);
 
 ```
-上述代码大家可以在单元测试`DynamicExportWithJObjectByTemplate_Test`中找到。
+The above code you can find in the unit test `DynamicExportWithJObjectByTemplate_Test`
 
-**值得注意的是，由于此处使用了`JObject`对象，因此在使用时需要按装包`Newtonsoft.Json`。但是，`Magicodes.IE.Excel`本身并不依赖`Newtonsoft.Json`。**
+**It is worth noting that since the `JObject` ，So you need to press the package when using `Newtonsoft.Json`. But，`Magicodes.IE.Excel`Not inherently dependent `Newtonsoft.Json`。**
 
-运行后可以看到如下图所示的结果：
+Currently, the dynamic export of Excel templates is only supported through `JObject` objects, and more dynamic methods will be supported in the future.
+
+After running, you can see the results as shown in the following figure.
 
 ![动态导出结果](../res/image-20210308180430331.png)
 
-## 4.使用Dictionary<string, object>完成动态导出
+## 11. Use Dictionary<string, object> to complete the dynamic export
 
-导出的代码和上面是一样的，只是数据结构使用了`Dictionary`：
+The exported code is the same as above, except that the data structure uses `Dictionary`
 
 ```csharp
 var data = new Dictionary<string, object>()
@@ -120,28 +118,24 @@ var data = new Dictionary<string, object>()
         }
     }
 };
-//模板路径
+//Template Path
 var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
     "DynamicExportTpl.xlsx");
-//创建Excel导出对象
+//Creating Excel Export Objects
 IExportFileByTemplate exporter = new ExcelExporter();
-//导出路径
+//Export Path
 var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(DynamicExportWithDictionaryByTemplate_Test) + ".xlsx");
 if (File.Exists(filePath)) File.Delete(filePath);
 
-//根据模板导出
+//Export from template
 await exporter.ExportByTemplate(filePath, data, tplPath);
 ```
 
-具体代码见`DynamicExportWithDictionaryByTemplate_Test`。
+Specific Code `DynamicExportWithDictionaryByTemplate_Test`。
 
-Tips:
+## 5. Use ExpandoObject to complete dynamic export
 
-- [如何使用集合初始值设定项初始化字典（C# 编程指南）](https://docs.microsoft.com/zh-cn/dotnet/csharp/programming-guide/classes-and-structs/how-to-initialize-a-dictionary-with-a-collection-initializer?WT.mc_id=DT-MVP-5004079)
-
-## 5.使用ExpandoObject完成动态导出
-
-同上，代码如下所示：
+As above, the code is shown below.
 
 ```csharp
 dynamic data = new ExpandoObject();
@@ -175,28 +169,28 @@ book2.Cover = "https://img9.doubanio.com/view/ark_article_cover/retina/public/13
 book2.Remark = "买买买";
 data.BookInfos.Add(book2);
 
-//模板路径
+//Template Path
 var tplPath = Path.Combine(Directory.GetCurrentDirectory(), "TestFiles", "ExportTemplates",
     "DynamicExportTpl.xlsx");
-//创建Excel导出对象
+//Creating Excel Export Objects
 IExportFileByTemplate exporter = new ExcelExporter();
-//导出路径
+//Export Path
 var filePath = Path.Combine(Directory.GetCurrentDirectory(), nameof(DynamicExportWithExpandoObjectByTemplate_Test) + ".xlsx");
 if (File.Exists(filePath)) File.Delete(filePath);
 
-//根据模板导出
+//Export according to template
 await exporter.ExportByTemplate(filePath, data, tplPath);
 ```
 
-具体代码参考`DynamicExportWithExpandoObjectByTemplate_Test`。
+Specific code view `DynamicExportWithExpandoObjectByTemplate_Test`。
 
-## 最后
+## Finally
 
-本教程至此就结束了，如有疑问，麻烦大家多多提交Issue。
+This tutorial ends here, if you have questions, please submit more Issue.
 
-**Magicodes.IE：导入导出通用库，支持Dto导入导出、模板导出、花式导出以及动态导出，支持Excel、Csv、Word、Pdf和Html。**
+**Magicodes.IE：import and export universal libraries, support Dto import and export, template export, fancy export and dynamic export, support Excel, Csv, Word, Pdf and Html.**
 
 - Github：<https://github.com/dotnetcore/Magicodes.IE>
-- 码云（手动同步，不维护）：<https://gitee.com/magicodes/Magicodes.IE>
+- Gitee（Manual sync, no maintenance）：<https://gitee.com/magicodes/Magicodes.IE>
 
-**相关库会一直更新，在功能体验上有可能会和本文教程有细微的出入，请以相关具体代码、版本日志、单元测试示例为准。**
+**The relevant library will be updated all the time, there may be slight differences in functional experience and this tutorial, please refer to the relevant specific code, version logs, unit test examples shall prevail.**
