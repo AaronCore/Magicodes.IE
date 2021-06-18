@@ -300,11 +300,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
                         //sheet.InsertRow(targetRow, numRowsToInsert, refRow);
                         sheet.InsertRow(targetRow, numRowsToInsert);
                         //EPPlus的问题。修复如果存在合并的单元格，但是在新插入的行无法生效的问题，具体见 https://stackoverflow.com/questions/31853046/epplus-copy-style-to-a-range/34299694#34299694
-                        for (var i = 0; i < numRowsToInsert; i++)
-                        {
-                            sheet.Cells[String.Format("{0}:{0}", refRow)].Copy(sheet.Cells[String.Format("{0}:{0}", targetRow + i)]);
-                            //sheet.Row(refRow).StyleID = sheet.Row(targetRow + i).StyleID;
-                        }
+
+                        //逐行复制效率低，改为多行复制
+                        //for (var i = 0; i < numRowsToInsert; i++)
+                        //{
+                        //    sheet.Cells[String.Format("{0}:{0}", refRow)].Copy(sheet.Cells[String.Format("{0}:{0}", targetRow + i)]);
+                        //    //sheet.Row(refRow).StyleID = sheet.Row(targetRow + i).StyleID;
+                        //}
+                        var maxCloumn = sheet.Dimension.End.Column;
+                        RowCopy(sheet, refRow, refRow, rowCount, maxCloumn);
                     }
                     RenderTableCells(target, tbParameters, sheet, insertRows, tableKey, rowCount, col, address);
 
@@ -326,6 +330,32 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
 
                 //表格渲染完成后更新插入的行数
                 insertRows += rowCount - 1;
+            }
+        }
+
+        /// <summary>
+        /// 多行复制
+        /// </summary>
+        /// <param name="sheet"></param>
+        /// <param name="startRow">复制前的开始行</param>
+        /// <param name="endRow">复制前的结束行</param>
+        /// <param name="totalRows">总行数</param>
+        /// <param name="maxColumnNum">最大列数</param>
+        private void RowCopy(ExcelWorksheet sheet, int startRow, int endRow, int totalRows, int maxColumnNum)
+        {
+            //rows表示现有的sheet行数
+            int rows = endRow - startRow + 1;
+            if (totalRows > rows * 2)
+            {
+                //行数复制一倍
+                sheet.Cells[startRow, 1, endRow, maxColumnNum].Copy(sheet.Cells[endRow + 1, 1, endRow * 2 - startRow + 1, maxColumnNum]);
+                //再次循环
+                RowCopy(sheet, startRow, endRow * 2 - startRow + 1, totalRows, maxColumnNum);
+            }
+            else
+            {
+                //行数复制需要(需要复制 totalRows - rows)
+                sheet.Cells[startRow, 1, startRow + (totalRows - rows) - 1, maxColumnNum].Copy(sheet.Cells[endRow + 1, 1, startRow + totalRows, maxColumnNum]);
             }
         }
 
@@ -557,6 +587,8 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
                             var alt = string.Empty;
                             var height = 0;
                             var width = 0;
+                            var xOffset = 0;
+                            var yOffset = 0;
                             if (body.Contains("?") && body.Contains("="))
                             {
                                 var arr = body.Split('?');
@@ -576,6 +608,20 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
                                 if (!string.IsNullOrWhiteSpace(widthStr))
                                 {
                                     width = int.Parse(widthStr);
+                                }
+
+                                //获取XOffset
+                                var xOffsetStr = values["XOffset"] ?? values["x"];
+                                if (!string.IsNullOrWhiteSpace(xOffsetStr))
+                                {
+                                    xOffset = int.Parse(xOffsetStr);
+                                }
+
+                                //获取YOffset
+                                var yOffsetStr = values["YOffset"] ?? values["y"];
+                                if (!string.IsNullOrWhiteSpace(yOffsetStr))
+                                {
+                                    yOffset = int.Parse(yOffsetStr);
                                 }
 
                                 //获取alt文本
@@ -610,8 +656,12 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
                                         cell.Value = string.Empty;
                                         var excelImage = sheet.Drawings.AddPicture(Guid.NewGuid().ToString(), bitmap);
                                         var address = new ExcelAddress(cell.Address);
-
-                                        excelImage.SetPosition(address.Start.Row - 1, 0, address.Start.Column - 1, 0);
+                                        ////调整对齐
+                                        excelImage.From.ColumnOff = Pixel2MTU(xOffset);
+                                        excelImage.From.RowOff = Pixel2MTU(yOffset);
+                                        excelImage.From.Column = address.Start.Column - 1;
+                                        excelImage.From.Row = address.Start.Row - 1;
+                                        //excelImage.SetPosition(address.Start.Row - 1, 0, address.Start.Column - 1, 0);
                                         excelImage.SetSize(width, height);
                                     }
                                 }
@@ -644,6 +694,13 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility.TemplateExport
 
             return true;
         }
+
+        internal static int Pixel2MTU(int pixels)
+        {
+            int mtus = pixels * 9525;
+            return mtus;
+        }
+
 
         /// <summary>
         ///     验证并转换模板

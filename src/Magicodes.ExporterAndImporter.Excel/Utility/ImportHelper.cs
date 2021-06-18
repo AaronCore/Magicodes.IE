@@ -587,10 +587,15 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                     }
                     else
                     {
-                        isColumnExist = (excelHeaders.ContainsKey(item.Header.Name));
+                        isColumnExist = excelHeaders.ContainsKey(item.Header.Name);
                     }
                     if (!isColumnExist)
                     {
+                        if (item.Header.ColumnIndex > 0)
+                        {
+                            item.IsExist = true;
+                        }
+
                         //仅验证必填字段
                         if (item.IsRequired)
                         {
@@ -702,41 +707,42 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                 ImporterHeaderInfos.Add(colHeader);
 
                 #region 处理值映射
+                var colHeaderMappingValues = colHeader.MappingValues;
+                propertyInfo.ValueMapping(ref colHeaderMappingValues);
+                //var mappings = propertyInfo.GetAttributes<ValueMappingAttribute>().ToList();
+                //foreach (var mappingAttribute in mappings.Where(mappingAttribute =>
+                //    !colHeader.MappingValues.ContainsKey(mappingAttribute.Text)))
+                //    colHeader.MappingValues.Add(mappingAttribute.Text, mappingAttribute.Value);
 
-                var mappings = propertyInfo.GetAttributes<ValueMappingAttribute>().ToList();
-                foreach (var mappingAttribute in mappings.Where(mappingAttribute =>
-                    !colHeader.MappingValues.ContainsKey(mappingAttribute.Text)))
-                    colHeader.MappingValues.Add(mappingAttribute.Text, mappingAttribute.Value);
+                ////如果存在自定义映射，则不会生成默认映射
+                //if (mappings.Any()) continue;
 
-                //如果存在自定义映射，则不会生成默认映射
-                if (mappings.Any()) continue;
+                ////为bool类型生成默认映射
+                //switch (propertyInfo.PropertyType.GetCSharpTypeName())
+                //{
+                //    case "Boolean":
+                //    case "Nullable<Boolean>":
+                //        {
+                //            if (!colHeader.MappingValues.ContainsKey("是")) colHeader.MappingValues.Add("是", true);
+                //            if (!colHeader.MappingValues.ContainsKey("否")) colHeader.MappingValues.Add("否", false);
+                //            break;
+                //        }
+                //}
 
-                //为bool类型生成默认映射
-                switch (propertyInfo.PropertyType.GetCSharpTypeName())
-                {
-                    case "Boolean":
-                    case "Nullable<Boolean>":
-                        {
-                            if (!colHeader.MappingValues.ContainsKey("是")) colHeader.MappingValues.Add("是", true);
-                            if (!colHeader.MappingValues.ContainsKey("否")) colHeader.MappingValues.Add("否", false);
-                            break;
-                        }
-                }
+                //var type = propertyInfo.PropertyType;
+                //var isNullable = type.IsNullable();
+                //if (isNullable) type = type.GetNullableUnderlyingType();
+                ////为枚举类型生成默认映射
+                //if (type.IsEnum)
+                //{
+                //    var values = type.GetEnumTextAndValues();
+                //    foreach (var value in values.Where(value => !colHeader.MappingValues.ContainsKey(value.Key)))
+                //        colHeader.MappingValues.Add(value.Key, value.Value);
 
-                var type = propertyInfo.PropertyType;
-                var isNullable = type.IsNullable();
-                if (isNullable) type = type.GetNullableUnderlyingType();
-                //为枚举类型生成默认映射
-                if (type.IsEnum)
-                {
-                    var values = type.GetEnumTextAndValues();
-                    foreach (var value in values.Where(value => !colHeader.MappingValues.ContainsKey(value.Key)))
-                        colHeader.MappingValues.Add(value.Key, value.Value);
-
-                    if (isNullable)
-                        if (!colHeader.MappingValues.ContainsKey(string.Empty))
-                            colHeader.MappingValues.Add(string.Empty, null);
-                }
+                //    if (isNullable)
+                //        if (!colHeader.MappingValues.ContainsKey(string.Empty))
+                //            colHeader.MappingValues.Add(string.Empty, null);
+                //}
 
                 #endregion 处理值映射
             }
@@ -1070,7 +1076,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
                                     continue;
                                 }
                                 else if (propertyInfo.PropertyType.IsEnum
-                                    && (propertyInfo.PropertyType.IsNullable() && propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
+                                    || (propertyInfo.PropertyType.IsNullable() && propertyInfo.PropertyType.GetNullableUnderlyingType().IsEnum)
                                          )
                                 {
                                     if (int.TryParse(cellValue, out int result))
@@ -1452,7 +1458,7 @@ namespace Magicodes.ExporterAndImporter.Excel.Utility
 #if NET461
             return excelPackage.Workbook.Worksheets[typeof(T).GetDisplayName()] ??
                    excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??
-                   excelPackage.Workbook.Worksheets[1];
+                   excelPackage.Workbook.Worksheets[0];
 #else
             return excelPackage.Workbook.Worksheets[typeof(T).GetDisplayName()] ??
                    excelPackage.Workbook.Worksheets[ExcelImporterSettings.SheetName] ??

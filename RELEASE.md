@@ -1,5 +1,39 @@
 # Release Log
 
+## 2.5.4.2
+
+**2021.06.05**
+- Fix ImporterHeader->ColumnIndex
+- Utilize RecyclableMemoryStream instead of "new MemoryStream" all over[#282](https://github.com/dotnetcore/Magicodes.IE/issues/282)
+
+## 2.5.4.1
+
+**2021.06.05**
+- EXCEL模板导出支持XOffset和YOffset[#280](https://github.com/dotnetcore/Magicodes.IE/issues/280)
+- EXCEL修复ValueMapping
+- Core工程多语言配置
+- EXCEL优化时间导出
+
+## 2.5.4.0
+
+**2021.06.01**
+
+- EXCEL支持自动换行属性[#278](https://github.com/dotnetcore/Magicodes.IE/issues/278)
+- EXCEL支持隐藏列属性[#273](https://github.com/dotnetcore/Magicodes.IE/issues/273)
+- EXCEL优化时间优化
+
+## 2.5.3.9
+
+**2021.05.26**
+- 修复ValueMappingAttribute[#272](https://github.com/dotnetcore/Magicodes.IE/issues/272)
+
+## 2.5.3.8
+
+**2021.05.10**
+
+- Excel模板导出功能，将单行复制改为多行复制
+- PDF导出内存优化
+
 ## 2.5.3.7
 
 **2021.04.23**
